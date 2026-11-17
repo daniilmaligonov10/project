@@ -1,7 +1,19 @@
 from scapy.all import ARP, Ether, srp
+import errno
 import psutil
 import ipaddress
 import socket
+
+DEFAULT_PORTS = [21, 22, 23, 80, 443, 554, 8080]
+PORT_NAMES = {
+    21: "ftp",
+    22: "ssh",
+    23: "telnet",
+    80: "http",
+    443: "https",
+    554: "rtsp",
+    8080: "http-proxy",
+}
 
 
 def find_local_networks():
@@ -24,7 +36,7 @@ def find_local_networks():
     if len(networks) != 1:
         return(networks)
     else:
-        network_name, _, network = network[0]
+        network_name, _, network = networks[0]
         return scan_network(network, network_name)
         
         
@@ -39,6 +51,36 @@ def scan_network(target_ip, interface_name):
         clients.append({"ip": received.psrc, "mac": received.hwsrc})
 
     return clients
+
+def scan_ports(host, ports=None):
+    if ports is None:
+        ports = DEFAULT_PORTS
+    scanned_ports = []
+     # open_ports = []
+     # closed_ports=[]
+
+    for port in ports:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.5)
+            result = sock.connect_ex((host, port))
+            
+        if result == 0:
+            status = "open"
+
+        elif result == errno.ECONNREFUSED:
+            status = "closed"
+            
+        else:
+            status = "no_response"
+
+        scanned_ports.append({
+            "port": port,
+            "service": PORT_NAMES.get(port, "unknown"),
+            "status": status,
+        })
+
+    return scanned_ports
+        
 
 
 
