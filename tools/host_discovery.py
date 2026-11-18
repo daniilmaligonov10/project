@@ -3,6 +3,7 @@ import errno
 import psutil
 import ipaddress
 import socket
+import re
 
 DEFAULT_PORTS = [21, 22, 23, 80, 443, 554, 8080]
 PORT_NAMES = {
@@ -56,7 +57,7 @@ def scan_ports(host, ports=None):
     if ports is None:
         ports = DEFAULT_PORTS
     scanned_ports = []
-     # open_ports = []
+    # opened_ports = []
      # closed_ports=[]
 
     for port in ports:
@@ -66,10 +67,8 @@ def scan_ports(host, ports=None):
             
         if result == 0:
             status = "open"
-
         elif result == errno.ECONNREFUSED:
             status = "closed"
-            
         else:
             status = "no_response"
 
@@ -79,8 +78,54 @@ def scan_ports(host, ports=None):
             "status": status,
         })
 
-    return scanned_ports
+    return scanned_ports, 
         
+def inspect_service(host,ports):
+    inspection_result = []
+    for port in ports:
+        service = "unknown"
+        version = "unknown"
+        name= "unknown"
+        try:
+            with socket.create_connection((host, port), timeout = 2) as s:
+                s.settimeout(2)
+                try:
+                    raw_banner = s.recv(1024)
+                    banner = raw_banner.decode("utf-8", errors="replace").strip()
+                    except socket.timeout:
+                        banner = ""
+                    if banner.startswith("SSH-"):     #SSH
+                        name = "SSH"
+                        info = banner.split("-",2)[2]
+                        
+                        if "_" in info:
+                            service, version = info.rsplit("_", 1)
+
+        except OSError:
+            pass
+        inspection_result.append({
+            "port: " port,
+            "name: " name,
+            "service: " service,
+            "version: "version,
+        })
+            return inspection_result
+
+
+                
+
+
+
+
+
+                
+                  
+
+   
+        
+        
+
+
 
 
 
