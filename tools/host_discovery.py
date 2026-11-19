@@ -78,38 +78,63 @@ def scan_ports(host, ports=None):
             "status": status,
         })
 
-    return scanned_ports, 
+    return scanned_ports
         
 def inspect_service(host,ports):
     inspection_result = []
     for port in ports:
         service = "unknown"
         version = "unknown"
-        name= "unknown"
+        name = "unknown"
+        banner = ""
         try:
-            with socket.create_connection((host, port), timeout = 2) as s:
+            with socket.create_connection((host, port), timeout=2) as s:
                 s.settimeout(2)
                 try:
                     raw_banner = s.recv(1024)
                     banner = raw_banner.decode("utf-8", errors="replace").strip()
-                    except socket.timeout:
-                        banner = ""
-                    if banner.startswith("SSH-"):     #SSH
-                        name = "SSH"
-                        info = banner.split("-",2)[2]
-                        
-                        if "_" in info:
-                            service, version = info.rsplit("_", 1)
+                except socket.timeout:
+                    banner = ""
+
+            if banner.startswith("SSH-"):
+                name = "SSH"
+                info = banner.split("-", 2)[2]
+                if "_" in info:
+                    service, version = info.rsplit("_", 1)
+                else:
+                    service = info
+                if not banner or port in (80,8080):
+                    request = (
+                        f"HEAD / HTTP/1.1\r\n"
+                        f"Host: {host}\r\n"
+                        "Connection: close\r\n"
+                        "\r\n"
+                    )
+                    s.sendall(request.encode("ascii"))
+
+                    http_text = response.decode("utf-8", errors="replace")
+                    
+                    for line in http_text.splitlines():
+                        if line.lower().startswith("server:"):
+                            value = line.split(":", 1)[1].strip()
+
+                            if "/" in value:
+                                service,version = value.split("/", 1)
+                            else:
+                                service = value
+                            break
 
         except OSError:
             pass
+
         inspection_result.append({
-            "port: " port,
-            "name: " name,
-            "service: " service,
-            "version: "version,
+            "port": port,
+            "name": name,
+            "service": service,
+            "version": version,
         })
-            return inspection_result
+
+    return inspection_result
 
 
                 
